@@ -119,6 +119,52 @@ app.post('/api/metrics', async (c) => {
   return c.json({ id: result.meta.last_row_id, success: true })
 })
 
+// Excel 데이터 일괄 업로드 API
+app.post('/api/upload/excel', async (c) => {
+  try {
+    const { data } = await c.req.json()
+    
+    // data 형식:
+    // [
+    //   { subsection2_id, metric_name, value, unit, metric_date },
+    //   ...
+    // ]
+    
+    let successCount = 0
+    let errorCount = 0
+    const errors: any[] = []
+    
+    for (const row of data) {
+      try {
+        await c.env.DB.prepare(`
+          INSERT INTO metrics (subsection2_id, metric_name, value, unit, metric_date)
+          VALUES (?, ?, ?, ?, ?)
+        `).bind(
+          row.subsection2_id,
+          row.metric_name,
+          row.value,
+          row.unit,
+          row.metric_date
+        ).run()
+        
+        successCount++
+      } catch (error: any) {
+        errorCount++
+        errors.push({ row, error: error.message })
+      }
+    }
+    
+    return c.json({
+      success: true,
+      inserted: successCount,
+      errors: errorCount,
+      errorDetails: errors.slice(0, 10) // 최대 10개 에러만 반환
+    })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 400)
+  }
+})
+
 // 엑셀 데이터 내보내기용 CSV 생성
 app.get('/api/export/metrics', async (c) => {
   const categoryId = c.req.query('category_id')
@@ -215,10 +261,17 @@ app.get('/', (c) => {
                             <i class="fas fa-chart-line text-3xl text-blue-600"></i>
                             <h1 class="text-2xl font-bold text-gray-900">지표 분석 대시보드</h1>
                         </div>
-                        <button id="exportBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition">
-                            <i class="fas fa-download"></i>
-                            <span>CSV 내보내기</span>
-                        </button>
+                        <div class="flex items-center space-x-3">
+                            <label for="excelUpload" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition cursor-pointer">
+                                <i class="fas fa-upload"></i>
+                                <span>Excel 업로드</span>
+                                <input type="file" id="excelUpload" accept=".xlsx,.xls" class="hidden">
+                            </label>
+                            <button id="exportBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition">
+                                <i class="fas fa-download"></i>
+                                <span>CSV 내보내기</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -305,6 +358,7 @@ app.get('/', (c) => {
 
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
         <script src="/static/app.js"></script>
     </body>
     </html>

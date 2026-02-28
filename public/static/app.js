@@ -300,6 +300,7 @@ function setupEventListeners() {
   });
   
   document.getElementById('exportBtn').addEventListener('click', exportData);
+  document.getElementById('excelUpload').addEventListener('change', handleExcelUpload);
 }
 
 // Export data
@@ -323,4 +324,76 @@ async function exportData() {
     console.error('Export error:', error);
     alert('데이터 내보내기 중 오류가 발생했습니다.');
   }
+}
+
+// Handle Excel upload
+async function handleExcelUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      // Parse Excel file
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      
+      // Get first sheet
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      
+      // Convert to JSON
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      
+      // Expected Excel format:
+      // subsection2_id | metric_name | value | unit | metric_date
+      // 1 | 생산량 | 125000 | 개 | 2024-01-01
+      
+      // Validate and prepare data
+      const metricsData = jsonData.map(row => ({
+        subsection2_id: row['subsection2_id'] || row['구분2_ID'],
+        metric_name: row['metric_name'] || row['지표명'],
+        value: row['value'] || row['값'],
+        unit: row['unit'] || row['단위'],
+        metric_date: row['metric_date'] || row['날짜']
+      }));
+      
+      // Show upload progress
+      const confirmed = confirm(`${metricsData.length}개의 데이터를 업로드하시겠습니까?`);
+      if (!confirmed) {
+        e.target.value = ''; // Reset file input
+        return;
+      }
+      
+      // Upload to server
+      const response = await axios.post('/api/upload/excel', {
+        data: metricsData
+      });
+      
+      if (response.data.success) {
+        alert(`업로드 완료!\n성공: ${response.data.inserted}개\n실패: ${response.data.errors}개`);
+        
+        // Reload dashboard
+        await loadDashboard();
+        
+        // Reload metrics if filter is selected
+        const subsection2Id = document.getElementById('subsection2Select').value;
+        if (subsection2Id) {
+          await loadMetrics(subsection2Id);
+        }
+      } else {
+        alert('업로드 실패: ' + response.data.error);
+      }
+      
+      // Reset file input
+      e.target.value = '';
+      
+    } catch (error) {
+      console.error('Excel upload error:', error);
+      alert('Excel 파일 처리 중 오류가 발생했습니다: ' + error.message);
+      e.target.value = '';
+    }
+  };
+  
+  reader.readAsArrayBuffer(file);
 }
