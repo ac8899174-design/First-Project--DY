@@ -10,6 +10,7 @@
   - 📈 Chart.js를 이용한 지표 시각화
   - 📋 상세 데이터 테이블 조회
   - 💾 CSV 엑셀 데이터 내보내기
+  - 📤 Excel 파일 업로드로 대량 데이터 입력 ⭐ NEW!
 
 ## 현재 완료된 기능
 
@@ -22,6 +23,7 @@
 - **지표 API**: 구분2별 지표 조회 (`GET /api/subsections2/:id/metrics`)
 - **대시보드 API**: 카테고리별 통계 요약 (`GET /api/dashboard`)
 - **CSV 내보내기**: 필터링된 데이터를 CSV로 내보내기 (`GET /api/export/metrics`)
+- **Excel 업로드 API**: 대량 데이터 일괄 입력 (`POST /api/upload/excel`) ⭐ NEW!
 
 ### ✅ 프론트엔드
 - **대시보드 카드**: 카테고리별 주제/소주제/구분1/구분2 개수 표시
@@ -29,6 +31,7 @@
 - **차트 시각화**: 선 그래프로 지표 추이 표시
 - **데이터 테이블**: 지표 상세 데이터 조회
 - **CSV 내보내기**: 필터링된 데이터를 CSV 파일로 다운로드
+- **Excel 업로드**: 브라우저에서 Excel 파일 파싱 및 일괄 업로드 ⭐ NEW!
 
 ### ✅ 데이터베이스
 - **Cloudflare D1**: SQLite 기반 로컬/프로덕션 데이터베이스
@@ -41,6 +44,10 @@
   - `metrics`: 지표 데이터 (값, 단위, 날짜)
 
 ## 공개 URL
+
+### 프로덕션 환경 (Cloudflare Pages)
+- **애플리케이션**: https://manufacturing-dashboard.pages.dev
+- **최신 배포**: https://290340d2.manufacturing-dashboard.pages.dev
 
 ### 샌드박스 개발 환경
 - **애플리케이션**: https://3000-i0chfljvgqyqrk0hy5ofh-ea026bf9.sandbox.novita.ai
@@ -150,6 +157,50 @@ categories (카테고리)
 ### 4. CSV 내보내기
 - 우측 상단의 "CSV 내보내기" 버튼을 클릭합니다
 - 현재 선택된 필터(카테고리/주제/소주제/구분1/구분2)에 맞는 데이터가 다운로드됩니다
+- CSV 파일은 카테고리, 주제, 소주제, 구분1, 구분2, 지표명, 값, 단위, 날짜 컬럼을 포함합니다
+- 엑셀이나 다른 스프레드시트 프로그램에서 열 수 있습니다
+
+### 5. Excel 업로드로 대량 데이터 입력 ⭐ NEW!
+
+#### 📊 Excel 파일 형식
+Excel 파일은 다음 5개 컬럼을 포함해야 합니다:
+
+| subsection2_id | metric_name | value | unit | metric_date |
+|---------------|-------------|-------|------|-------------|
+| 1 | 생산량 | 125000 | 개 | 2024-01-01 |
+| 1 | 생산량 | 132000 | 개 | 2024-02-01 |
+| 2 | 생산량 | 45000 | 개 | 2024-01-01 |
+
+**또는 한글 컬럼명 사용 가능:**
+
+| 구분2_ID | 지표명 | 값 | 단위 | 날짜 |
+|---------|--------|-----|-----|------|
+| 1 | 생산량 | 125000 | 개 | 2024-01-01 |
+
+#### 📤 업로드 방법
+1. Excel 파일 준비 (.xlsx 또는 .xls)
+2. 대시보드 헤더의 "Excel 업로드" 버튼 클릭
+3. 파일 선택
+4. 데이터 개수 확인 후 "확인" 클릭
+5. 업로드 완료 메시지 확인
+6. 대시보드가 자동으로 새로고침됩니다
+
+#### 🔢 subsection2_id 찾기
+- **방법 1**: API로 확인
+  ```bash
+  curl https://manufacturing-dashboard.pages.dev/api/subsections/1/subsections2
+  ```
+- **방법 2**: 브라우저 개발자 도구(F12) → Console에서 `console.log(subsections2)` 실행
+- **방법 3**: [EXCEL_UPLOAD_GUIDE.md](EXCEL_UPLOAD_GUIDE.md) 파일 참조
+
+#### 📁 템플릿 다운로드
+- [excel_template.csv](excel_template.csv) - 샘플 데이터 포함 템플릿
+
+#### ⚠️ 주의사항
+- subsection2_id는 반드시 존재하는 ID 사용
+- 날짜 형식: YYYY-MM-DD (예: 2024-01-01)
+- 값(value)은 숫자만, 쉼표 없이 (예: 125000)
+- 자세한 내용은 [EXCEL_UPLOAD_GUIDE.md](EXCEL_UPLOAD_GUIDE.md) 참조
 - CSV 파일은 카테고리, 주제, 소주제, 구분1, 구분2, 지표명, 값, 단위, 날짜 컬럼을 포함합니다
 - 엑셀이나 다른 스프레드시트 프로그램에서 열 수 있습니다
 
