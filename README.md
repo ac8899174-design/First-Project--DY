@@ -6,7 +6,7 @@
 - **목표**: 생산운영, 공급망, 자동화, 품질/제조 관련 지표를 분석하고 필터링하여 시각화된 정보를 제공하며 CSV로 내보낼 수 있는 대시보드
 - **주요 기능**:
   - 📊 카테고리별 대시보드 요약
-  - 🔍 4단계 계층적 필터링 (카테고리 → 주제 → 소주제 → 구분)
+  - 🔍 5단계 계층적 필터링 (카테고리 → 주제 → 소주제 → 구분1 → 구분2)
   - 📈 Chart.js를 이용한 지표 시각화
   - 📋 상세 데이터 테이블 조회
   - 💾 CSV 엑셀 데이터 내보내기
@@ -17,14 +17,15 @@
 - **카테고리 API**: 모든 카테고리 조회 (`GET /api/categories`)
 - **주제 API**: 카테고리별 주제 조회 (`GET /api/categories/:id/topics`)
 - **소주제 API**: 주제별 소주제 조회 (`GET /api/topics/:id/subtopics`)
-- **구분 API**: 소주제별 구분 조회 (`GET /api/subtopics/:id/subsections`)
-- **지표 API**: 구분별 지표 조회 (`GET /api/subsections/:id/metrics`)
+- **구분1 API**: 소주제별 구분1 조회 (`GET /api/subtopics/:id/subsections`)
+- **구분2 API**: 구분1별 구분2 조회 (`GET /api/subsections/:id/subsections2`)
+- **지표 API**: 구분2별 지표 조회 (`GET /api/subsections2/:id/metrics`)
 - **대시보드 API**: 카테고리별 통계 요약 (`GET /api/dashboard`)
 - **CSV 내보내기**: 필터링된 데이터를 CSV로 내보내기 (`GET /api/export/metrics`)
 
 ### ✅ 프론트엔드
-- **대시보드 카드**: 카테고리별 주제/소주제/구분/지표 개수 표시
-- **4단계 계층적 필터**: 카테고리 → 주제 → 소주제 → 구분 선택
+- **대시보드 카드**: 카테고리별 주제/소주제/구분1/구분2 개수 표시
+- **5단계 계층적 필터**: 카테고리 → 주제 → 소주제 → 구분1 → 구분2 선택
 - **차트 시각화**: 선 그래프로 지표 추이 표시
 - **데이터 테이블**: 지표 상세 데이터 조회
 - **CSV 내보내기**: 필터링된 데이터를 CSV 파일로 다운로드
@@ -33,9 +34,10 @@
 - **Cloudflare D1**: SQLite 기반 로컬/프로덕션 데이터베이스
 - **테이블 구조**:
   - `categories`: 카테고리 (생산운영, 수삽라인, 자동화, 품질/제조기술)
-  - `topics`: 주제 (생산성 분석, 설비 가동률, 재고 관리, 자동화율 등)
-  - `subtopics`: 소주제 (시간당 생산량, 라인별 생산량, 원자재 재고 등)
-  - `subsections`: 구분 (1/2/3라인, 주간/야간, 용접/조립/검사 공정 등)
+  - `topics`: 주제 (Main 라인 운영, 자동화 라인 운영, 재고 운영 등)
+  - `subtopics`: 소주제 (생산량 현황, 가동라인 현황, 계획 대비 실적, 마감율 현황, 재고일수, 재고건전성 등)
+  - `subsections`: 구분1 (월별, 주별, 일별, 주차별 재고 일수, 주차별 재고금액, 주차별 재고건전성 등)
+  - `subsections2`: 구분2 (전체, 일반, 대형, EYELET, AXIAL, RADIAL, RADIAL2, SMD, 원자재, 공정재고, 완제품, 본사출고, 직납, 직구매 등)
   - `metrics`: 지표 데이터 (값, 단위, 날짜)
 
 ## 공개 URL
@@ -57,14 +59,17 @@ GET https://3000-i0chfljvgqyqrk0hy5ofh-ea026bf9.sandbox.novita.ai/api/categories
 # 특정 주제의 소주제
 GET https://3000-i0chfljvgqyqrk0hy5ofh-ea026bf9.sandbox.novita.ai/api/topics/1/subtopics
 
-# 특정 소주제의 구분
+# 특정 소주제의 구분1
 GET https://3000-i0chfljvgqyqrk0hy5ofh-ea026bf9.sandbox.novita.ai/api/subtopics/1/subsections
 
-# 특정 구분의 지표
-GET https://3000-i0chfljvgqyqrk0hy5ofh-ea026bf9.sandbox.novita.ai/api/subsections/1/metrics
+# 특정 구분1의 구분2
+GET https://3000-i0chfljvgqyqrk0hy5ofh-ea026bf9.sandbox.novita.ai/api/subsections/1/subsections2
+
+# 특정 구분2의 지표
+GET https://3000-i0chfljvgqyqrk0hy5ofh-ea026bf9.sandbox.novita.ai/api/subsections2/1/metrics
 
 # CSV 내보내기 (필터 옵션)
-GET https://3000-i0chfljvgqyqrk0hy5ofh-ea026bf9.sandbox.novita.ai/api/export/metrics?category_id=1&topic_id=1&subsection_id=1
+GET https://3000-i0chfljvgqyqrk0hy5ofh-ea026bf9.sandbox.novita.ai/api/export/metrics?category_id=1&topic_id=1&subsection_id=1&subsection2_id=1
 ```
 
 ## 데이터 아키텍처
@@ -74,8 +79,9 @@ GET https://3000-i0chfljvgqyqrk0hy5ofh-ea026bf9.sandbox.novita.ai/api/export/met
 categories (카테고리)
   ├── topics (주제)
   │     ├── subtopics (소주제)
-  │     │     ├── subsections (구분)
-  │     │     │     ├── metrics (지표)
+  │     │     ├── subsections (구분1)
+  │     │     │     ├── subsections2 (구분2)
+  │     │     │     │     ├── metrics (지표)
 ```
 
 ### 스토리지 서비스
@@ -83,39 +89,68 @@ categories (카테고리)
 - **로컬 개발**: `.wrangler/state/v3/d1/` 에 SQLite 파일 저장
 - **마이그레이션**: `migrations/` 디렉토리에서 스키마 관리
 
-### 샘플 데이터
-- 4개 카테고리: 생산운영, 수삽라인, 자동화, 품질/제조기술
-- 8개 주제: 생산성 분석, 설비 가동률, 재고 관리, 납기 준수율, 자동화율, 로봇 가동률, 불량률, 공정 능력
-- 16개 소주제: 시간당 생산량, 라인별 생산량, 설비 가동시간, 원자재 재고, 완제품 재고, 공정별 자동화율, 로봇 가동시간, 라인별 불량률, 불량 유형, Cp/Cpk 지수 등
-- 35개 구분: 1/2/3라인, A/B/C라인, 주간/야간/전체, 용접/조립/검사 공정, 용접/핸들링/검사 로봇, 외관/치수/기능 불량 등
-- 72개 지표 데이터: 생산량, 가동률, 재고량, 납기 준수율, 자동화율, 로봇 효율, 불량률, Cpk 지수 등
+### 샘플 데이터 (생산운영 카테고리 기준)
+
+#### 1. **Main 라인 운영** (주제)
+- **생산량 현황** (소주제)
+  - 구분1: 월별, 주별, 일별
+  - 구분2: 전체, 일반, 대형
+- **가동라인 현황** (소주제)
+  - 구분1: 월별, 주별, 일별
+  - 구분2: 전체, 일반, 대형
+
+#### 2. **자동화 라인 운영** (주제)
+- **계획 대비 실적** (소주제)
+  - 구분1: 월별, 주별, 일별
+  - 구분2: 전체, EYELET, AXIAL, RADIAL, RADIAL2, SMD
+- **마감율 현황** (소주제)
+  - 구분1: 월별, 주별, 일별
+  - 구분2: 전체, EYELET, AXIAL, RADIAL, RADIAL2, SMD
+
+#### 3. **재고 운영** (주제)
+- **재고일수** (소주제)
+  - 구분1: 주차별 재고 일수, 주차별 재고금액
+  - 구분2: 전체, 원자재, 공정재고, 완제품
+- **재고건전성** (소주제)
+  - 구분1: 주차별 재고건전성
+  - 구분2: 전체, 본사출고, 직납, 직구매
+
+### 통계
+- **카테고리**: 4개 (생산운영, 수삽라인, 자동화, 품질/제조기술)
+- **주제**: 3개 (생산운영 카테고리만 구현됨)
+- **소주제**: 6개
+- **구분1**: 15개
+- **구분2**: 66개
+- **지표**: 51개
 
 ## 사용자 가이드
 
 ### 1. 대시보드 보기
 - 메인 페이지에 접속하면 4개의 카테고리 카드가 표시됩니다
-  - **생산운영**: 생산 효율 및 설비 가동 지표
+  - **생산운영**: 생산 효율 및 설비 가동 지표 (현재 구현됨)
   - **수삽라인**: 재고 관리 및 납기 준수 지표
   - **자동화**: 공정 자동화 및 로봇 운영 지표
   - **품질/제조기술**: 불량률 및 공정 능력 지표
-- 각 카드에는 주제 수, 소주제 수, 구분 수, 지표 수가 표시됩니다
+- 각 카드에는 주제 수, 소주제 수, 구분1 수, 구분2 수가 표시됩니다
 - 카드를 클릭하면 해당 카테고리가 자동으로 선택됩니다
 
 ### 2. 지표 조회하기
-1. **카테고리 선택**: 필터 영역에서 카테고리를 선택합니다
-2. **주제 선택**: 카테고리를 선택하면 주제 목록이 활성화됩니다
-3. **소주제 선택**: 주제를 선택하면 소주제 목록이 활성화됩니다
-4. **구분 선택**: 소주제를 선택하면 구분 목록이 활성화됩니다
-5. 구분을 선택하면 차트와 테이블에 지표 데이터가 표시됩니다
+1. **카테고리 선택**: 필터 영역에서 카테고리를 선택합니다 (예: 생산운영)
+2. **주제 선택**: 카테고리를 선택하면 주제 목록이 활성화됩니다 (예: Main 라인 운영)
+3. **소주제 선택**: 주제를 선택하면 소주제 목록이 활성화됩니다 (예: 생산량 현황)
+4. **구분1 선택**: 소주제를 선택하면 구분1 목록이 활성화됩니다 (예: 월별)
+5. **구분2 선택**: 구분1을 선택하면 구분2 목록이 활성화됩니다 (예: 전체)
+6. 구분2를 선택하면 차트와 테이블에 지표 데이터가 표시됩니다
 
 ### 3. 차트 보기
-- 구분을 선택하면 선 그래프가 자동으로 생성됩니다
-- 여러 지표가 있는 경우 다양한 색상으로 표시됩니다
+- 구분2를 선택하면 선 그래프가 자동으로 생성됩니다
+- 2024년 1월~6월 데이터가 시계열로 표시됩니다
 - 마우스를 올리면 상세 값을 확인할 수 있습니다
 
 ### 4. CSV 내보내기
 - 우측 상단의 "CSV 내보내기" 버튼을 클릭합니다
-- 현재 선택된 필터(카테고리/주제/소주제/구분)에 맞는 데이터가 다운로드됩니다
+- 현재 선택된 필터(카테고리/주제/소주제/구분1/구분2)에 맞는 데이터가 다운로드됩니다
+- CSV 파일은 카테고리, 주제, 소주제, 구분1, 구분2, 지표명, 값, 단위, 날짜 컬럼을 포함합니다
 - 엑셀이나 다른 스프레드시트 프로그램에서 열 수 있습니다
 
 ## 개발 환경
@@ -156,6 +191,52 @@ npm run db:console:local
 npm run db:migrate:prod
 ```
 
+### 필터 트리 편집 방법
+필터 계층 구조(카테고리, 주제, 소주제, 구분1, 구분2)를 수정하려면 `seed_v4.sql` 파일을 편집하세요:
+
+1. **파일 위치**: `/home/user/webapp/seed_v4.sql`
+
+2. **편집 후 적용**:
+```bash
+# 데이터베이스 리셋 (기존 데이터 삭제 후 새 seed 적용)
+npm run db:reset
+
+# 서버 재시작
+pm2 restart webapp
+```
+
+3. **구조 설명**:
+```sql
+-- 1. 카테고리 삽입 (ID는 1부터 시작)
+INSERT INTO categories (name, description, icon) VALUES ...
+
+-- 2. 주제 삽입 (category_id로 카테고리와 연결)
+INSERT INTO topics (category_id, name, description) VALUES ...
+
+-- 3. 소주제 삽입 (topic_id로 주제와 연결)
+INSERT INTO subtopics (topic_id, name, description) VALUES ...
+
+-- 4. 구분1 삽입 (subtopic_id로 소주제와 연결)
+INSERT INTO subsections (subtopic_id, name, description) VALUES ...
+
+-- 5. 구분2 삽입 (subsection_id로 구분1과 연결)
+INSERT INTO subsections2 (subsection_id, name, description) VALUES ...
+
+-- 6. 지표 삽입 (subsection2_id로 구분2와 연결)
+INSERT INTO metrics (subsection2_id, metric_name, value, unit, metric_date) VALUES ...
+```
+
+4. **편집 예시**:
+```sql
+-- 새로운 주제 추가
+INSERT INTO topics (category_id, name, description) VALUES
+  (1, '에너지 관리', '전력 및 에너지 소비량 분석');
+
+-- 새로운 소주제 추가
+INSERT INTO subtopics (topic_id, name, description) VALUES
+  (4, '전력 소비량', '시간대별 전력 사용량');
+```
+
 ## 배포 상태
 - **플랫폼**: Cloudflare Pages (로컬 개발 환경)
 - **상태**: ✅ 활성 (샌드박스)
@@ -165,36 +246,54 @@ npm run db:migrate:prod
   - 배포: Cloudflare Pages/Workers
 - **마지막 업데이트**: 2026-02-28
 
+## 아직 구현되지 않은 기능
+
+### 1. 다른 카테고리 데이터
+- 현재 **생산운영** 카테고리만 완전히 구현되어 있습니다
+- **수삽라인**, **자동화**, **품질/제조기술** 카테고리는 주제/소주제/구분/지표 데이터가 없습니다
+- seed_v4.sql 파일을 수정하여 추가 데이터를 입력할 수 있습니다
+
+### 2. 지표 추가/수정/삭제 UI
+- 현재는 데이터베이스 직접 편집으로만 지표를 관리할 수 있습니다
+- 관리자 페이지에서 GUI로 지표를 추가/수정/삭제하는 기능이 필요합니다
+
+### 3. 날짜 범위 필터
+- 시작일/종료일을 선택하여 특정 기간의 지표만 조회하는 기능
+- 현재는 모든 날짜의 데이터가 표시됩니다
+
+### 4. 다양한 차트 유형
+- 현재는 선 그래프만 지원합니다
+- 막대 그래프, 파이 차트, 도넛 차트 등 추가 필요
+
+### 5. 사용자 인증
+- 로그인/회원가입 기능
+- 사용자별 데이터 분리 및 권한 관리
+
 ## 추천 개발 단계
 
-### 다음 구현 권장 사항
-1. **지표 추가/수정/삭제 기능**
-   - 새로운 지표 데이터를 추가할 수 있는 폼
-   - 기존 지표를 수정하거나 삭제하는 기능
+### 1단계: 데이터 완성
+- 수삽라인, 자동화, 품질/제조기술 카테고리의 주제/소주제/구분/지표 데이터 추가
+- seed_v4.sql 파일을 수정하여 실제 업무에 맞는 데이터 입력
 
-2. **날짜 범위 필터**
-   - 시작일/종료일을 선택하여 특정 기간의 지표만 조회
-   - 차트에서 날짜 범위 슬라이더 추가
+### 2단계: 지표 관리 UI
+- 관리자 페이지 추가 (`/admin` 경로)
+- 카테고리/주제/소주제/구분1/구분2/지표를 GUI로 추가/수정/삭제
+- 계층 구조 트리 뷰 추가
 
-3. **더 많은 차트 유형**
-   - 막대 그래프, 파이 차트, 도넛 차트 등
-   - 차트 유형 선택 옵션 추가
+### 3단계: 고급 필터링
+- 날짜 범위 선택 기능
+- 다중 선택 필터 (여러 구분2를 동시에 비교)
+- 저장된 필터 프리셋
 
-4. **카테고리/주제/소주제/구분 관리**
-   - 관리자 페이지에서 계층 구조 편집
-   - 새로운 항목 추가 및 삭제
+### 4단계: 차트 개선
+- 다양한 차트 유형 (막대, 파이, 도넛, 영역 차트 등)
+- 차트 비교 기능 (여러 지표를 한 화면에)
+- 차트 이미지 다운로드 기능
 
-5. **사용자 인증**
-   - 로그인/회원가입 기능
-   - 사용자별 데이터 분리
-
-6. **대시보드 커스터마이징**
-   - 사용자가 자주 보는 지표를 즐겨찾기로 저장
-   - 개인화된 대시보드 레이아웃
-
-7. **실시간 데이터 업데이트**
-   - WebSocket을 이용한 실시간 지표 업데이트
-   - 자동 새로고침 옵션
+### 5단계: 사용자 관리
+- 로그인/회원가입
+- 역할 기반 접근 제어 (관리자/사용자)
+- 사용자별 대시보드 커스터마이징
 
 ## 프로젝트 구조
 ```
@@ -206,8 +305,9 @@ webapp/
 │       └── app.js             # 프론트엔드 JavaScript
 ├── migrations/
 │   ├── 0001_initial_schema.sql    # 초기 스키마
-│   └── 0002_add_subsections.sql   # 구분 테이블 추가
-├── seed_v2.sql                # 샘플 데이터 (구분 포함)
+│   ├── 0002_add_subsections.sql   # 구분1 테이블 추가
+│   └── 0003_add_subsections2.sql  # 구분2 테이블 추가
+├── seed_v4.sql                # 샘플 데이터 (구분1, 구분2 포함)
 ├── ecosystem.config.cjs       # PM2 설정
 ├── wrangler.jsonc             # Cloudflare 설정
 ├── package.json               # 의존성 및 스크립트
@@ -225,8 +325,8 @@ webapp/
 ### Cloudflare D1
 - **SQLite 기반**: 익숙한 SQL 문법 사용
 - **로컬 개발**: `.wrangler/state/v3/d1/` 에 로컬 DB 자동 생성
-- **마이그레이션**: 스키마 변경 이력 관리
-- **관계형 데이터**: 외래 키와 JOIN을 활용한 복잡한 쿼리
+- **마이그레이션**: 스키마 변경 이력 관리 (3개 마이그레이션 적용됨)
+- **관계형 데이터**: 외래 키와 JOIN을 활용한 복잡한 5단계 계층 쿼리
 
 ### 프론트엔드
 - **TailwindCSS**: 유틸리티 기반 스타일링
@@ -234,6 +334,36 @@ webapp/
 - **Axios**: HTTP 클라이언트
 - **FontAwesome**: 아이콘 라이브러리
 - **Vanilla JavaScript**: 의존성 최소화
+
+## 프로젝트 저장 및 편집 방법
+
+### 방법 1: GitHub로 저장 (권장)
+```bash
+# 1. Git 원격 저장소 추가
+cd /home/user/webapp
+git remote add origin https://github.com/your-username/webapp.git
+
+# 2. GitHub에 푸시
+git push -f origin main
+
+# 나중에 편집할 때
+git clone https://github.com/your-username/webapp.git
+cd webapp
+npm install
+npm run db:reset
+npm run build
+pm2 start ecosystem.config.cjs
+```
+
+### 방법 2: 백업 파일 다운로드
+- **백업 URL**: https://www.genspark.ai/api/files/s/Fa4kYqxO
+- 백업 파일을 다운로드하여 압축 해제 후 사용
+
+### 필터 트리 편집 인터페이스
+- **파일**: `/home/user/webapp/seed_v4.sql`
+- **편집 도구**: 텍스트 에디터 (nano, vim, VS Code 등)
+- **적용 방법**: `npm run db:reset` 실행
+- **구조**: SQL INSERT 문으로 계층 구조 정의
 
 ## 문의 및 지원
 이 프로젝트에 대한 문의사항이나 개선 제안이 있으시면 언제든지 연락주세요.
