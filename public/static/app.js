@@ -3,6 +3,7 @@ let chart = null;
 let categories = [];
 let topics = [];
 let subtopics = [];
+let subsections = [];
 let metrics = [];
 
 // Initialize
@@ -28,7 +29,7 @@ async function loadDashboard() {
         </div>
         <h3 class="text-lg font-semibold text-gray-800 mb-2">${cat.name}</h3>
         <p class="text-sm text-gray-600 mb-4">${cat.description}</p>
-        <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="grid grid-cols-2 gap-2 text-center">
           <div>
             <div class="text-2xl font-bold text-blue-600">${cat.topic_count}</div>
             <div class="text-xs text-gray-500">주제</div>
@@ -36,6 +37,10 @@ async function loadDashboard() {
           <div>
             <div class="text-2xl font-bold text-green-600">${cat.subtopic_count}</div>
             <div class="text-xs text-gray-500">소주제</div>
+          </div>
+          <div>
+            <div class="text-2xl font-bold text-orange-600">${cat.subsection_count}</div>
+            <div class="text-xs text-gray-500">구분</div>
           </div>
           <div>
             <div class="text-2xl font-bold text-purple-600">${cat.metric_count}</div>
@@ -74,10 +79,9 @@ async function loadTopics(categoryId) {
     topicSelect.innerHTML = '<option value="">선택하세요</option>' + 
       topics.map(topic => `<option value="${topic.id}">${topic.name}</option>`).join('');
     
-    // Reset subtopic select
-    const subtopicSelect = document.getElementById('subtopicSelect');
-    subtopicSelect.disabled = true;
-    subtopicSelect.innerHTML = '<option value="">주제를 먼저 선택하세요</option>';
+    // Reset subtopic and subsection select
+    resetSubtopicSelect();
+    resetSubsectionSelect();
   } catch (error) {
     console.error('Topics load error:', error);
   }
@@ -93,15 +97,33 @@ async function loadSubtopics(topicId) {
     subtopicSelect.disabled = false;
     subtopicSelect.innerHTML = '<option value="">선택하세요</option>' + 
       subtopics.map(sub => `<option value="${sub.id}">${sub.name}</option>`).join('');
+    
+    // Reset subsection select
+    resetSubsectionSelect();
   } catch (error) {
     console.error('Subtopics load error:', error);
   }
 }
 
-// Load metrics
-async function loadMetrics(subtopicId) {
+// Load subsections
+async function loadSubsections(subtopicId) {
   try {
-    const response = await axios.get(`/api/subtopics/${subtopicId}/metrics`);
+    const response = await axios.get(`/api/subtopics/${subtopicId}/subsections`);
+    subsections = response.data;
+    
+    const subsectionSelect = document.getElementById('subsectionSelect');
+    subsectionSelect.disabled = false;
+    subsectionSelect.innerHTML = '<option value="">선택하세요</option>' + 
+      subsections.map(subsec => `<option value="${subsec.id}">${subsec.name}</option>`).join('');
+  } catch (error) {
+    console.error('Subsections load error:', error);
+  }
+}
+
+// Load metrics
+async function loadMetrics(subsectionId) {
+  try {
+    const response = await axios.get(`/api/subsections/${subsectionId}/metrics`);
     metrics = response.data;
     
     updateTable();
@@ -200,6 +222,20 @@ function updateChart() {
   });
 }
 
+// Reset subtopic select
+function resetSubtopicSelect() {
+  const subtopicSelect = document.getElementById('subtopicSelect');
+  subtopicSelect.disabled = true;
+  subtopicSelect.innerHTML = '<option value="">주제를 먼저 선택하세요</option>';
+}
+
+// Reset subsection select
+function resetSubsectionSelect() {
+  const subsectionSelect = document.getElementById('subsectionSelect');
+  subsectionSelect.disabled = true;
+  subsectionSelect.innerHTML = '<option value="">소주제를 먼저 선택하세요</option>';
+}
+
 // Setup event listeners
 function setupEventListeners() {
   document.getElementById('categorySelect').addEventListener('change', async (e) => {
@@ -210,8 +246,8 @@ function setupEventListeners() {
     } else {
       document.getElementById('topicSelect').disabled = true;
       document.getElementById('topicSelect').innerHTML = '<option value="">카테고리를 먼저 선택하세요</option>';
-      document.getElementById('subtopicSelect').disabled = true;
-      document.getElementById('subtopicSelect').innerHTML = '<option value="">주제를 먼저 선택하세요</option>';
+      resetSubtopicSelect();
+      resetSubsectionSelect();
       clearData();
     }
   });
@@ -222,8 +258,8 @@ function setupEventListeners() {
     if (topicId) {
       await loadSubtopics(topicId);
     } else {
-      document.getElementById('subtopicSelect').disabled = true;
-      document.getElementById('subtopicSelect').innerHTML = '<option value="">주제를 먼저 선택하세요</option>';
+      resetSubtopicSelect();
+      resetSubsectionSelect();
       clearData();
     }
   });
@@ -232,7 +268,18 @@ function setupEventListeners() {
     const subtopicId = e.target.value;
     
     if (subtopicId) {
-      await loadMetrics(subtopicId);
+      await loadSubsections(subtopicId);
+    } else {
+      resetSubsectionSelect();
+      clearData();
+    }
+  });
+  
+  document.getElementById('subsectionSelect').addEventListener('change', async (e) => {
+    const subsectionId = e.target.value;
+    
+    if (subsectionId) {
+      await loadMetrics(subsectionId);
     } else {
       clearData();
     }
@@ -263,11 +310,13 @@ async function exportToCSV() {
   const categoryId = document.getElementById('categorySelect').value;
   const topicId = document.getElementById('topicSelect').value;
   const subtopicId = document.getElementById('subtopicSelect').value;
+  const subsectionId = document.getElementById('subsectionSelect').value;
   
   let url = '/api/export/metrics?';
   if (categoryId) url += `category_id=${categoryId}&`;
   if (topicId) url += `topic_id=${topicId}&`;
   if (subtopicId) url += `subtopic_id=${subtopicId}&`;
+  if (subsectionId) url += `subsection_id=${subsectionId}&`;
   
   try {
     const response = await axios.get(url, { responseType: 'blob' });

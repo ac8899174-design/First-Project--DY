@@ -38,14 +38,23 @@ app.get('/api/topics/:id/subtopics', async (c) => {
   return c.json(results)
 })
 
-// 특정 소주제의 지표 조회 (필터링 지원)
-app.get('/api/subtopics/:id/metrics', async (c) => {
+// 특정 소주제의 구분 조회
+app.get('/api/subtopics/:id/subsections', async (c) => {
   const subtopicId = c.req.param('id')
+  const { results } = await c.env.DB.prepare(
+    'SELECT * FROM subsections WHERE subtopic_id = ? ORDER BY name'
+  ).bind(subtopicId).all()
+  return c.json(results)
+})
+
+// 특정 구분의 지표 조회 (필터링 지원)
+app.get('/api/subsections/:id/metrics', async (c) => {
+  const subsectionId = c.req.param('id')
   const startDate = c.req.query('start_date')
   const endDate = c.req.query('end_date')
   
-  let query = 'SELECT * FROM metrics WHERE subtopic_id = ?'
-  const params: any[] = [subtopicId]
+  let query = 'SELECT * FROM metrics WHERE subsection_id = ?'
+  const params: any[] = [subsectionId]
   
   if (startDate) {
     query += ' AND metric_date >= ?'
@@ -72,12 +81,14 @@ app.get('/api/dashboard', async (c) => {
       c.description,
       c.icon,
       COUNT(DISTINCT t.id) as topic_count,
-      COUNT(DISTINCT s.id) as subtopic_count,
+      COUNT(DISTINCT st.id) as subtopic_count,
+      COUNT(DISTINCT ss.id) as subsection_count,
       COUNT(m.id) as metric_count
     FROM categories c
     LEFT JOIN topics t ON c.id = t.category_id
-    LEFT JOIN subtopics s ON t.id = s.topic_id
-    LEFT JOIN metrics m ON s.id = m.subtopic_id
+    LEFT JOIN subtopics st ON t.id = st.topic_id
+    LEFT JOIN subsections ss ON st.id = ss.subtopic_id
+    LEFT JOIN metrics m ON ss.id = m.subsection_id
     GROUP BY c.id, c.name, c.description, c.icon
     ORDER BY c.name
   `).all()
@@ -102,19 +113,22 @@ app.get('/api/export/metrics', async (c) => {
   const categoryId = c.req.query('category_id')
   const topicId = c.req.query('topic_id')
   const subtopicId = c.req.query('subtopic_id')
+  const subsectionId = c.req.query('subsection_id')
   
   let query = `
     SELECT 
       c.name as category,
       t.name as topic,
-      s.name as subtopic,
+      st.name as subtopic,
+      ss.name as subsection,
       m.metric_name,
       m.metric_value,
       m.metric_unit,
       m.metric_date
     FROM metrics m
-    JOIN subtopics s ON m.subtopic_id = s.id
-    JOIN topics t ON s.topic_id = t.id
+    JOIN subsections ss ON m.subsection_id = ss.id
+    JOIN subtopics st ON ss.subtopic_id = st.id
+    JOIN topics t ON st.topic_id = t.id
     JOIN categories c ON t.category_id = c.id
     WHERE 1=1
   `
@@ -132,19 +146,24 @@ app.get('/api/export/metrics', async (c) => {
   }
   
   if (subtopicId) {
-    query += ' AND s.id = ?'
+    query += ' AND st.id = ?'
     params.push(subtopicId)
   }
   
-  query += ' ORDER BY m.metric_date ASC, c.name, t.name, s.name'
+  if (subsectionId) {
+    query += ' AND ss.id = ?'
+    params.push(subsectionId)
+  }
+  
+  query += ' ORDER BY m.metric_date ASC, c.name, t.name, st.name, ss.name'
   
   const { results } = await c.env.DB.prepare(query).bind(...params).all()
   
   // CSV 형식으로 변환
   const csv = [
-    ['카테고리', '주제', '소주제', '지표명', '값', '단위', '날짜'].join(','),
+    ['카테고리', '주제', '소주제', '구분', '지표명', '값', '단위', '날짜'].join(','),
     ...results.map((row: any) => 
-      [row.category, row.topic, row.subtopic, row.metric_name, row.metric_value, row.metric_unit, row.metric_date].join(',')
+      [row.category, row.topic, row.subtopic, row.subsection, row.metric_name, row.metric_value, row.metric_unit, row.metric_date].join(',')
     )
   ].join('\n')
   
@@ -197,7 +216,7 @@ app.get('/', (c) => {
                     <h2 class="text-xl font-semibold text-gray-800 mb-4">
                         <i class="fas fa-filter mr-2"></i>필터
                     </h2>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">카테고리</label>
                             <select id="categorySelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
@@ -214,6 +233,12 @@ app.get('/', (c) => {
                             <label class="block text-sm font-medium text-gray-700 mb-2">소주제</label>
                             <select id="subtopicSelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" disabled>
                                 <option value="">주제를 먼저 선택하세요</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">구분</label>
+                            <select id="subsectionSelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" disabled>
+                                <option value="">소주제를 먼저 선택하세요</option>
                             </select>
                         </div>
                     </div>
