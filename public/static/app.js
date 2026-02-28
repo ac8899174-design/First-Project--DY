@@ -4,6 +4,7 @@ let categories = [];
 let topics = [];
 let subtopics = [];
 let subsections = [];
+let subsections2 = [];
 let metrics = [];
 
 // Initialize
@@ -29,22 +30,22 @@ async function loadDashboard() {
         </div>
         <h3 class="text-lg font-semibold text-gray-800 mb-2">${cat.name}</h3>
         <p class="text-sm text-gray-600 mb-4">${cat.description}</p>
-        <div class="grid grid-cols-2 gap-2 text-center">
+        <div class="grid grid-cols-2 gap-2 text-center text-xs">
           <div>
-            <div class="text-2xl font-bold text-blue-600">${cat.topic_count}</div>
+            <div class="text-xl font-bold text-blue-600">${cat.topic_count}</div>
             <div class="text-xs text-gray-500">주제</div>
           </div>
           <div>
-            <div class="text-2xl font-bold text-green-600">${cat.subtopic_count}</div>
+            <div class="text-xl font-bold text-green-600">${cat.subtopic_count}</div>
             <div class="text-xs text-gray-500">소주제</div>
           </div>
           <div>
-            <div class="text-2xl font-bold text-orange-600">${cat.subsection_count}</div>
-            <div class="text-xs text-gray-500">구분</div>
+            <div class="text-xl font-bold text-orange-600">${cat.subsection_count}</div>
+            <div class="text-xs text-gray-500">구분1</div>
           </div>
           <div>
-            <div class="text-2xl font-bold text-purple-600">${cat.metric_count}</div>
-            <div class="text-xs text-gray-500">지표</div>
+            <div class="text-xl font-bold text-purple-600">${cat.subsection2_count}</div>
+            <div class="text-xs text-gray-500">구분2</div>
           </div>
         </div>
       </div>
@@ -79,9 +80,9 @@ async function loadTopics(categoryId) {
     topicSelect.innerHTML = '<option value="">선택하세요</option>' + 
       topics.map(topic => `<option value="${topic.id}">${topic.name}</option>`).join('');
     
-    // Reset subtopic and subsection select
     resetSubtopicSelect();
     resetSubsectionSelect();
+    resetSubsection2Select();
   } catch (error) {
     console.error('Topics load error:', error);
   }
@@ -98,14 +99,14 @@ async function loadSubtopics(topicId) {
     subtopicSelect.innerHTML = '<option value="">선택하세요</option>' + 
       subtopics.map(sub => `<option value="${sub.id}">${sub.name}</option>`).join('');
     
-    // Reset subsection select
     resetSubsectionSelect();
+    resetSubsection2Select();
   } catch (error) {
     console.error('Subtopics load error:', error);
   }
 }
 
-// Load subsections
+// Load subsections (구분1)
 async function loadSubsections(subtopicId) {
   try {
     const response = await axios.get(`/api/subtopics/${subtopicId}/subsections`);
@@ -114,47 +115,45 @@ async function loadSubsections(subtopicId) {
     const subsectionSelect = document.getElementById('subsectionSelect');
     subsectionSelect.disabled = false;
     subsectionSelect.innerHTML = '<option value="">선택하세요</option>' + 
-      subsections.map(subsec => `<option value="${subsec.id}">${subsec.name}</option>`).join('');
+      subsections.map(sub => `<option value="${sub.id}">${sub.name}</option>`).join('');
+    
+    resetSubsection2Select();
   } catch (error) {
     console.error('Subsections load error:', error);
   }
 }
 
-// Load metrics
-async function loadMetrics(subsectionId) {
+// Load subsections2 (구분2)
+async function loadSubsections2(subsectionId) {
   try {
-    const response = await axios.get(`/api/subsections/${subsectionId}/metrics`);
+    const response = await axios.get(`/api/subsections/${subsectionId}/subsections2`);
+    subsections2 = response.data;
+    
+    const subsection2Select = document.getElementById('subsection2Select');
+    subsection2Select.disabled = false;
+    subsection2Select.innerHTML = '<option value="">선택하세요</option>' + 
+      subsections2.map(sub => `<option value="${sub.id}">${sub.name}</option>`).join('');
+  } catch (error) {
+    console.error('Subsections2 load error:', error);
+  }
+}
+
+// Load metrics
+async function loadMetrics(subsection2Id) {
+  try {
+    const response = await axios.get(`/api/subsections2/${subsection2Id}/metrics`);
     metrics = response.data;
     
-    updateTable();
     updateChart();
+    updateTable();
   } catch (error) {
     console.error('Metrics load error:', error);
   }
 }
 
-// Update table
-function updateTable() {
-  const tableEl = document.getElementById('metricsTable');
-  
-  if (metrics.length === 0) {
-    tableEl.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">데이터가 없습니다</td></tr>';
-    return;
-  }
-  
-  tableEl.innerHTML = metrics.map(metric => `
-    <tr class="hover:bg-gray-50">
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${metric.metric_date}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${metric.metric_name}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">${formatNumber(metric.metric_value)}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${metric.metric_unit || '-'}</td>
-    </tr>
-  `).join('');
-}
-
 // Update chart
 function updateChart() {
-  const ctx = document.getElementById('metricsChart');
+  const ctx = document.getElementById('metricsChart').getContext('2d');
   
   if (chart) {
     chart.destroy();
@@ -164,174 +163,164 @@ function updateChart() {
     return;
   }
   
-  // Group metrics by name
-  const groupedMetrics = {};
-  metrics.forEach(metric => {
-    if (!groupedMetrics[metric.metric_name]) {
-      groupedMetrics[metric.metric_name] = {
-        labels: [],
-        data: []
-      };
-    }
-    groupedMetrics[metric.metric_name].labels.push(metric.metric_date);
-    groupedMetrics[metric.metric_name].data.push(metric.metric_value);
-  });
-  
-  const datasets = Object.entries(groupedMetrics).map(([name, data], index) => {
-    const colors = [
-      'rgb(59, 130, 246)',
-      'rgb(16, 185, 129)',
-      'rgb(245, 158, 11)',
-      'rgb(239, 68, 68)',
-      'rgb(139, 92, 246)'
-    ];
-    const color = colors[index % colors.length];
-    
-    return {
-      label: name,
-      data: data.data,
-      borderColor: color,
-      backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
-      tension: 0.4
-    };
-  });
-  
   chart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: groupedMetrics[Object.keys(groupedMetrics)[0]].labels,
-      datasets: datasets
+      labels: metrics.map(m => m.metric_date),
+      datasets: [{
+        label: metrics[0]?.metric_name || '지표',
+        data: metrics.map(m => m.value),
+        borderColor: 'rgb(59, 130, 246)',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        tension: 0.4
+      }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          position: 'top',
-        },
-        title: {
-          display: false
+          display: true
         }
       },
       scales: {
         y: {
-          beginAtZero: true
+          beginAtZero: false
         }
       }
     }
   });
 }
 
-// Reset subtopic select
-function resetSubtopicSelect() {
-  const subtopicSelect = document.getElementById('subtopicSelect');
-  subtopicSelect.disabled = true;
-  subtopicSelect.innerHTML = '<option value="">주제를 먼저 선택하세요</option>';
-}
-
-// Reset subsection select
-function resetSubsectionSelect() {
-  const subsectionSelect = document.getElementById('subsectionSelect');
-  subsectionSelect.disabled = true;
-  subsectionSelect.innerHTML = '<option value="">소주제를 먼저 선택하세요</option>';
-}
-
-// Setup event listeners
-function setupEventListeners() {
-  document.getElementById('categorySelect').addEventListener('change', async (e) => {
-    const categoryId = e.target.value;
-    
-    if (categoryId) {
-      await loadTopics(categoryId);
-    } else {
-      document.getElementById('topicSelect').disabled = true;
-      document.getElementById('topicSelect').innerHTML = '<option value="">카테고리를 먼저 선택하세요</option>';
-      resetSubtopicSelect();
-      resetSubsectionSelect();
-      clearData();
-    }
-  });
+// Update table
+function updateTable() {
+  const tbody = document.getElementById('metricsTable');
   
-  document.getElementById('topicSelect').addEventListener('change', async (e) => {
-    const topicId = e.target.value;
-    
-    if (topicId) {
-      await loadSubtopics(topicId);
-    } else {
-      resetSubtopicSelect();
-      resetSubsectionSelect();
-      clearData();
-    }
-  });
-  
-  document.getElementById('subtopicSelect').addEventListener('change', async (e) => {
-    const subtopicId = e.target.value;
-    
-    if (subtopicId) {
-      await loadSubsections(subtopicId);
-    } else {
-      resetSubsectionSelect();
-      clearData();
-    }
-  });
-  
-  document.getElementById('subsectionSelect').addEventListener('change', async (e) => {
-    const subsectionId = e.target.value;
-    
-    if (subsectionId) {
-      await loadMetrics(subsectionId);
-    } else {
-      clearData();
-    }
-  });
-  
-  document.getElementById('exportBtn').addEventListener('click', exportToCSV);
-}
-
-// Select category from dashboard
-async function selectCategory(categoryId) {
-  const categorySelect = document.getElementById('categorySelect');
-  categorySelect.value = categoryId;
-  categorySelect.dispatchEvent(new Event('change'));
-}
-
-// Clear data
-function clearData() {
-  metrics = [];
-  updateTable();
-  if (chart) {
-    chart.destroy();
-    chart = null;
+  if (metrics.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">데이터가 없습니다</td></tr>';
+    return;
   }
-}
-
-// Export to CSV
-async function exportToCSV() {
-  const categoryId = document.getElementById('categorySelect').value;
-  const topicId = document.getElementById('topicSelect').value;
-  const subtopicId = document.getElementById('subtopicSelect').value;
-  const subsectionId = document.getElementById('subsectionSelect').value;
   
-  let url = '/api/export/metrics?';
-  if (categoryId) url += `category_id=${categoryId}&`;
-  if (topicId) url += `topic_id=${topicId}&`;
-  if (subtopicId) url += `subtopic_id=${subtopicId}&`;
-  if (subsectionId) url += `subsection_id=${subsectionId}&`;
-  
-  try {
-    const response = await axios.get(url, { responseType: 'blob' });
-    const blob = new Blob([response.data], { type: 'text/csv' });
-    const link = document.createElement('a');
-    link.href = window.URL.createObjectURL(blob);
-    link.download = 'metrics_export.csv';
-    link.click();
-  } catch (error) {
-    console.error('Export error:', error);
-    alert('CSV 내보내기에 실패했습니다.');
-  }
+  tbody.innerHTML = metrics.map(m => `
+    <tr class="hover:bg-gray-50">
+      <td class="px-6 py-3 border-b">${m.metric_date}</td>
+      <td class="px-6 py-3 border-b">${m.metric_name}</td>
+      <td class="px-6 py-3 border-b text-right font-semibold">${formatNumber(m.value)}</td>
+      <td class="px-6 py-3 border-b text-gray-600">${m.unit}</td>
+    </tr>
+  `).join('');
 }
 
 // Format number
 function formatNumber(num) {
   return new Intl.NumberFormat('ko-KR').format(num);
+}
+
+// Reset select boxes
+function resetTopicSelect() {
+  const topicSelect = document.getElementById('topicSelect');
+  topicSelect.disabled = true;
+  topicSelect.innerHTML = '<option value="">먼저 카테고리를 선택하세요</option>';
+}
+
+function resetSubtopicSelect() {
+  const subtopicSelect = document.getElementById('subtopicSelect');
+  subtopicSelect.disabled = true;
+  subtopicSelect.innerHTML = '<option value="">먼저 주제를 선택하세요</option>';
+}
+
+function resetSubsectionSelect() {
+  const subsectionSelect = document.getElementById('subsectionSelect');
+  subsectionSelect.disabled = true;
+  subsectionSelect.innerHTML = '<option value="">먼저 소주제를 선택하세요</option>';
+}
+
+function resetSubsection2Select() {
+  const subsection2Select = document.getElementById('subsection2Select');
+  subsection2Select.disabled = true;
+  subsection2Select.innerHTML = '<option value="">먼저 구분1을 선택하세요</option>';
+}
+
+// Select category from dashboard
+function selectCategory(categoryId) {
+  const categorySelect = document.getElementById('categorySelect');
+  categorySelect.value = categoryId;
+  categorySelect.dispatchEvent(new Event('change'));
+}
+
+// Event listeners
+function setupEventListeners() {
+  document.getElementById('categorySelect').addEventListener('change', (e) => {
+    const categoryId = e.target.value;
+    if (categoryId) {
+      loadTopics(categoryId);
+    } else {
+      resetTopicSelect();
+      resetSubtopicSelect();
+      resetSubsectionSelect();
+      resetSubsection2Select();
+    }
+  });
+  
+  document.getElementById('topicSelect').addEventListener('change', (e) => {
+    const topicId = e.target.value;
+    if (topicId) {
+      loadSubtopics(topicId);
+    } else {
+      resetSubtopicSelect();
+      resetSubsectionSelect();
+      resetSubsection2Select();
+    }
+  });
+  
+  document.getElementById('subtopicSelect').addEventListener('change', (e) => {
+    const subtopicId = e.target.value;
+    if (subtopicId) {
+      loadSubsections(subtopicId);
+    } else {
+      resetSubsectionSelect();
+      resetSubsection2Select();
+    }
+  });
+  
+  document.getElementById('subsectionSelect').addEventListener('change', (e) => {
+    const subsectionId = e.target.value;
+    if (subsectionId) {
+      loadSubsections2(subsectionId);
+    } else {
+      resetSubsection2Select();
+    }
+  });
+  
+  document.getElementById('subsection2Select').addEventListener('change', (e) => {
+    const subsection2Id = e.target.value;
+    if (subsection2Id) {
+      loadMetrics(subsection2Id);
+    }
+  });
+  
+  document.getElementById('exportBtn').addEventListener('click', exportData);
+}
+
+// Export data
+async function exportData() {
+  try {
+    const categoryId = document.getElementById('categorySelect').value;
+    const topicId = document.getElementById('topicSelect').value;
+    const subtopicId = document.getElementById('subtopicSelect').value;
+    const subsectionId = document.getElementById('subsectionSelect').value;
+    const subsection2Id = document.getElementById('subsection2Select').value;
+    
+    let url = '/api/export/metrics?';
+    if (categoryId) url += `category_id=${categoryId}&`;
+    if (topicId) url += `topic_id=${topicId}&`;
+    if (subtopicId) url += `subtopic_id=${subtopicId}&`;
+    if (subsectionId) url += `subsection_id=${subsectionId}&`;
+    if (subsection2Id) url += `subsection2_id=${subsection2Id}`;
+    
+    window.location.href = url;
+  } catch (error) {
+    console.error('Export error:', error);
+    alert('데이터 내보내기 중 오류가 발생했습니다.');
+  }
 }

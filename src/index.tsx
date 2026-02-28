@@ -47,14 +47,23 @@ app.get('/api/subtopics/:id/subsections', async (c) => {
   return c.json(results)
 })
 
-// 특정 구분의 지표 조회 (필터링 지원)
-app.get('/api/subsections/:id/metrics', async (c) => {
+// 특정 구분의 구분2 조회
+app.get('/api/subsections/:id/subsections2', async (c) => {
   const subsectionId = c.req.param('id')
+  const { results } = await c.env.DB.prepare(
+    'SELECT * FROM subsections2 WHERE subsection_id = ? ORDER BY name'
+  ).bind(subsectionId).all()
+  return c.json(results)
+})
+
+// 특정 구분2의 지표 조회 (필터링 지원)
+app.get('/api/subsections2/:id/metrics', async (c) => {
+  const subsection2Id = c.req.param('id')
   const startDate = c.req.query('start_date')
   const endDate = c.req.query('end_date')
   
-  let query = 'SELECT * FROM metrics WHERE subsection_id = ?'
-  const params: any[] = [subsectionId]
+  let query = 'SELECT * FROM metrics WHERE subsection2_id = ?'
+  const params: any[] = [subsection2Id]
   
   if (startDate) {
     query += ' AND metric_date >= ?'
@@ -83,12 +92,14 @@ app.get('/api/dashboard', async (c) => {
       COUNT(DISTINCT t.id) as topic_count,
       COUNT(DISTINCT st.id) as subtopic_count,
       COUNT(DISTINCT ss.id) as subsection_count,
+      COUNT(DISTINCT ss2.id) as subsection2_count,
       COUNT(m.id) as metric_count
     FROM categories c
     LEFT JOIN topics t ON c.id = t.category_id
     LEFT JOIN subtopics st ON t.id = st.topic_id
     LEFT JOIN subsections ss ON st.id = ss.subtopic_id
-    LEFT JOIN metrics m ON ss.id = m.subsection_id
+    LEFT JOIN subsections2 ss2 ON ss.id = ss2.subsection_id
+    LEFT JOIN metrics m ON ss2.id = m.subsection2_id
     GROUP BY c.id, c.name, c.description, c.icon
     ORDER BY c.name
   `).all()
@@ -120,13 +131,15 @@ app.get('/api/export/metrics', async (c) => {
       c.name as category,
       t.name as topic,
       st.name as subtopic,
-      ss.name as subsection,
+      ss.name as subsection1,
+      ss2.name as subsection2,
       m.metric_name,
-      m.metric_value,
-      m.metric_unit,
+      m.value,
+      m.unit,
       m.metric_date
     FROM metrics m
-    JOIN subsections ss ON m.subsection_id = ss.id
+    JOIN subsections2 ss2 ON m.subsection2_id = ss2.id
+    JOIN subsections ss ON ss2.subsection_id = ss.id
     JOIN subtopics st ON ss.subtopic_id = st.id
     JOIN topics t ON st.topic_id = t.id
     JOIN categories c ON t.category_id = c.id
@@ -155,15 +168,21 @@ app.get('/api/export/metrics', async (c) => {
     params.push(subsectionId)
   }
   
-  query += ' ORDER BY m.metric_date ASC, c.name, t.name, st.name, ss.name'
+  const subsection2Id = c.req.query('subsection2_id')
+  if (subsection2Id) {
+    query += ' AND ss2.id = ?'
+    params.push(subsection2Id)
+  }
+  
+  query += ' ORDER BY m.metric_date ASC, c.name, t.name, st.name, ss.name, ss2.name'
   
   const { results } = await c.env.DB.prepare(query).bind(...params).all()
   
   // CSV 형식으로 변환
   const csv = [
-    ['카테고리', '주제', '소주제', '구분', '지표명', '값', '단위', '날짜'].join(','),
+    ['카테고리', '주제', '소주제', '구분1', '구분2', '지표명', '값', '단위', '날짜'].join(','),
     ...results.map((row: any) => 
-      [row.category, row.topic, row.subtopic, row.subsection, row.metric_name, row.metric_value, row.metric_unit, row.metric_date].join(',')
+      [row.category, row.topic, row.subtopic, row.subsection1, row.subsection2, row.metric_name, row.value, row.unit, row.metric_date].join(',')
     )
   ].join('\n')
   
@@ -216,7 +235,7 @@ app.get('/', (c) => {
                     <h2 class="text-xl font-semibold text-gray-800 mb-4">
                         <i class="fas fa-filter mr-2"></i>필터
                     </h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">카테고리</label>
                             <select id="categorySelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
@@ -236,9 +255,15 @@ app.get('/', (c) => {
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">구분</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">구분1</label>
                             <select id="subsectionSelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" disabled>
                                 <option value="">소주제를 먼저 선택하세요</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">구분2</label>
+                            <select id="subsection2Select" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" disabled>
+                                <option value="">구분1을 먼저 선택하세요</option>
                             </select>
                         </div>
                     </div>
